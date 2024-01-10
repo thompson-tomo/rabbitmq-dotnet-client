@@ -220,12 +220,15 @@ namespace RabbitMQ.Client.Framing.Impl
             return OpenAsync(CancellationToken.None).EnsureCompleted();
         }
 
-        // TODO cancellationToken
         internal async ValueTask<IConnection> OpenAsync(CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             try
             {
                 RabbitMqClientEventSource.Log.ConnectionOpened();
+
+                cancellationToken.ThrowIfCancellationRequested();
 
                 await _frameHandler.ConnectAsync(cancellationToken)
                     .ConfigureAwait(false);
@@ -233,22 +236,26 @@ namespace RabbitMQ.Client.Framing.Impl
                 // Note: this must happen *after* the frame handler is started
                 _mainLoopTask = Task.Run(MainLoop, cancellationToken);
 
+                cancellationToken.ThrowIfCancellationRequested();
+
                 await StartAndTuneAsync(cancellationToken)
                     .ConfigureAwait(false);
+
+                cancellationToken.ThrowIfCancellationRequested();
 
                 await _channel0.ConnectionOpenAsync(_config.VirtualHost, cancellationToken)
                     .ConfigureAwait(false);
 
                 return this;
             }
-            catch // TODO - evaluate all "catch all" clauses to ensure correct exception is eventually thrown
+            catch
             {
                 try
                 {
                     var ea = new ShutdownEventArgs(ShutdownInitiator.Library, Constants.InternalError, "FailedOpen");
-                    // TODO linked cancellation token?
-                    await CloseAsync(ea, true, TimeSpan.FromSeconds(5))
-                        .ConfigureAwait(false);
+                    await CloseAsync(ea, true,
+                        InternalConstants.DefaultConnectionAbortTimeout,
+                        cancellationToken).ConfigureAwait(false);
                 }
                 catch { }
 
@@ -285,9 +292,10 @@ namespace RabbitMQ.Client.Framing.Impl
         }
 
         ///<summary>Asynchronous API-side invocation of connection.close with timeout.</summary>
-        public Task CloseAsync(ushort reasonCode, string reasonText, TimeSpan timeout, bool abort)
+        public Task CloseAsync(ushort reasonCode, string reasonText, TimeSpan timeout, bool abort, CancellationToken cancellationToken)
         {
-            return CloseAsync(new ShutdownEventArgs(ShutdownInitiator.Application, reasonCode, reasonText), abort, timeout);
+            var reason = new ShutdownEventArgs(ShutdownInitiator.Application, reasonCode, reasonText);
+            return CloseAsync(reason, abort, timeout, cancellationToken);
         }
 
         ///<summary>Asychronously try to close connection in a graceful way</summary>
@@ -305,8 +313,7 @@ namespace RabbitMQ.Client.Framing.Impl
         ///to complete.
         ///</para>
         ///</remarks>
-        // TODO cancellation token
-        internal async Task CloseAsync(ShutdownEventArgs reason, bool abort, TimeSpan timeout)
+        internal async Task CloseAsync(ShutdownEventArgs reason, bool abort, TimeSpan timeout, CancellationToken cancellationToken)
         {
             if (false == SetCloseReason(reason))
             {
@@ -318,6 +325,8 @@ namespace RabbitMQ.Client.Framing.Impl
             }
             else
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 OnShutdown(reason);
                 _session0.SetSessionClosing(false);
 
@@ -327,7 +336,7 @@ namespace RabbitMQ.Client.Framing.Impl
                     if (!_closed)
                     {
                         var method = new ConnectionClose(reason.ReplyCode, reason.ReplyText, 0, 0);
-                        await _session0.TransmitAsync(method)
+                        await _session0.TransmitAsync(method, cancellationToken)
                             .ConfigureAwait(false);
                     }
                 }
@@ -365,29 +374,29 @@ namespace RabbitMQ.Client.Framing.Impl
 
             try
             {
-                await _mainLoopTask.WaitAsync(timeout)
+                await _mainLoopTask.WaitAsync(timeout, cancellationToken)
                     .ConfigureAwait(false);
             }
-            catch (TimeoutException)
-            {
-            }
-            catch (AggregateException)
-            {
-            }
-            finally
+            catch
             {
                 try
                 {
+                    // TODO cancellation token?
                     await _frameHandler.CloseAsync()
                         .ConfigureAwait(false);
                 }
                 catch
                 {
                 }
+
+                if (false == abort)
+                {
+                    throw;
+                }
             }
         }
 
-        internal void InternalClose(ShutdownEventArgs reason)
+        internal void ClosedViaPeer(ShutdownEventArgs reason)
         {
             if (!SetCloseReason(reason))
             {
@@ -449,17 +458,13 @@ namespace RabbitMQ.Client.Framing.Impl
         internal void Write(RentedMemory frames)
         {
             Activity.Current.SetNetworkTags(_frameHandler);
-            ValueTask task = _frameHandler.WriteAsync(frames);
-            if (!task.IsCompletedSuccessfully)
-            {
-                task.EnsureCompleted();
-            }
+            _frameHandler.Write(frames);
         }
 
-        internal ValueTask WriteAsync(RentedMemory frames)
+        internal ValueTask WriteAsync(RentedMemory frames, CancellationToken cancellationToken)
         {
             Activity.Current.SetNetworkTags(_frameHandler);
-            return _frameHandler.WriteAsync(frames);
+            return _frameHandler.WriteAsync(frames, cancellationToken);
         }
 
         public void Dispose()

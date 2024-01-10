@@ -208,14 +208,16 @@ namespace RabbitMQ.Client.Framing.Impl
         }
 
         ///<summary>Asynchronous API-side invocation of connection.close with timeout.</summary>
-        public async Task CloseAsync(ushort reasonCode, string reasonText, TimeSpan timeout, bool abort)
+        public async Task CloseAsync(ushort reasonCode, string reasonText, TimeSpan timeout, bool abort, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            await StopRecoveryLoopAsync()
+            // TODO
+            // what to do if this method throws OperationCanceledException? We still need to close the connection.
+            await StopRecoveryLoopAsync(cancellationToken)
                 .ConfigureAwait(false);
             if (_innerConnection.IsOpen)
             {
-                await _innerConnection.CloseAsync(reasonCode, reasonText, timeout, abort)
+                await _innerConnection.CloseAsync(reasonCode, reasonText, timeout, abort, cancellationToken)
                     .ConfigureAwait(false);
             }
         }
@@ -255,9 +257,10 @@ namespace RabbitMQ.Client.Framing.Impl
             {
                 _channels.Clear();
                 _innerConnection = null;
-                _disposed = true;
                 _recordedEntitiesSemaphore.Dispose();
                 _channelsSemaphore.Dispose();
+                _recoveryCancellationTokenSource.Dispose();
+                _disposed = true;
             }
         }
 

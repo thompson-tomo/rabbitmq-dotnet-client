@@ -20,7 +20,8 @@ namespace RabbitMQ.Client
         /// </remarks>
         public static Task CloseAsync(this IConnection connection)
         {
-            return connection.CloseAsync(Constants.ReplySuccess, "Goodbye", InternalConstants.DefaultConnectionCloseTimeout, false);
+            using var cts = new CancellationTokenSource(InternalConstants.DefaultConnectionCloseTimeout);
+            return connection.CloseAsync(Constants.ReplySuccess, "Goodbye", InternalConstants.DefaultConnectionCloseTimeout, false, cts.Token);
         }
 
         /// <summary>
@@ -38,7 +39,8 @@ namespace RabbitMQ.Client
         /// </remarks>
         public static Task CloseAsync(this IConnection connection, ushort reasonCode, string reasonText)
         {
-            return connection.CloseAsync(reasonCode, reasonText, InternalConstants.DefaultConnectionCloseTimeout, false);
+            using var cts = new CancellationTokenSource(InternalConstants.DefaultConnectionCloseTimeout);
+            return connection.CloseAsync(reasonCode, reasonText, InternalConstants.DefaultConnectionCloseTimeout, false, cts.Token);
         }
 
         /// <summary>
@@ -58,7 +60,8 @@ namespace RabbitMQ.Client
         /// </remarks>
         public static Task CloseAsync(this IConnection connection, TimeSpan timeout)
         {
-            return connection.CloseAsync(Constants.ReplySuccess, "Goodbye", timeout, false);
+            using var cts = new CancellationTokenSource(timeout);
+            return connection.CloseAsync(Constants.ReplySuccess, "Goodbye", timeout, false, cts.Token);
         }
 
         /// <summary>
@@ -80,7 +83,8 @@ namespace RabbitMQ.Client
         /// </remarks>
         public static Task CloseAsync(this IConnection connection, ushort reasonCode, string reasonText, TimeSpan timeout)
         {
-            return connection.CloseAsync(reasonCode, reasonText, timeout, false);
+            using var cts = new CancellationTokenSource(timeout);
+            return connection.CloseAsync(reasonCode, reasonText, timeout, false, cts.Token);
         }
 
         /// <summary>
@@ -94,7 +98,8 @@ namespace RabbitMQ.Client
         /// </remarks>
         public static Task AbortAsync(this IConnection connection)
         {
-            return connection.CloseAsync(Constants.ReplySuccess, "Connection close forced", InternalConstants.DefaultConnectionAbortTimeout, true);
+            using var cts = new CancellationTokenSource(InternalConstants.DefaultConnectionAbortTimeout);
+            return connection.CloseAsync(Constants.ReplySuccess, "Connection close forced", InternalConstants.DefaultConnectionAbortTimeout, true, cts.Token);
         }
 
         /// <summary>
@@ -112,7 +117,8 @@ namespace RabbitMQ.Client
         /// </remarks>
         public static Task AbortAsync(this IConnection connection, ushort reasonCode, string reasonText)
         {
-            return connection.CloseAsync(reasonCode, reasonText, InternalConstants.DefaultConnectionAbortTimeout, true);
+            using var cts = new CancellationTokenSource(InternalConstants.DefaultConnectionAbortTimeout);
+            return connection.CloseAsync(reasonCode, reasonText, InternalConstants.DefaultConnectionAbortTimeout, true, cts.Token);
         }
 
         /// <summary>
@@ -130,7 +136,8 @@ namespace RabbitMQ.Client
         /// </remarks>
         public static Task AbortAsync(this IConnection connection, TimeSpan timeout)
         {
-            return connection.CloseAsync(Constants.ReplySuccess, "Connection close forced", timeout, true);
+            using var cts = new CancellationTokenSource(timeout);
+            return connection.CloseAsync(Constants.ReplySuccess, "Connection close forced", timeout, true, cts.Token);
         }
 
         /// <summary>
@@ -149,7 +156,8 @@ namespace RabbitMQ.Client
         /// </remarks>
         public static Task AbortAsync(this IConnection connection, ushort reasonCode, string reasonText, TimeSpan timeout)
         {
-            return connection.CloseAsync(reasonCode, reasonText, timeout, true);
+            using var cts = new CancellationTokenSource(timeout);
+            return connection.CloseAsync(reasonCode, reasonText, timeout, true, cts.Token);
         }
     }
 }

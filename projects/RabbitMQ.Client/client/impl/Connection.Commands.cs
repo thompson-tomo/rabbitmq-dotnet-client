@@ -74,10 +74,22 @@ namespace RabbitMQ.Client.Framing.Impl
         {
             var connectionStartCell = new TaskCompletionSource<ConnectionStartDetails>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            using CancellationTokenRegistration ctr = cancellationToken.Register(() =>
+#if NET6_0_OR_GREATER
+            using CancellationTokenRegistration ctr = cancellationToken.UnsafeRegister((object? state) =>
             {
-                connectionStartCell.TrySetCanceled(cancellationToken);
-            }, useSynchronizationContext: false);
+                if (state != null)
+                {
+                    var csc = (TaskCompletionSource<ConnectionStartDetails>)state;
+                    csc.TrySetCanceled(cancellationToken);
+                }
+            }, connectionStartCell);
+#else
+            using CancellationTokenRegistration ctr = cancellationToken.Register((object state) =>
+            {
+                var csc = (TaskCompletionSource<ConnectionStartDetails>)state;
+                csc.TrySetCanceled(cancellationToken);
+            }, state: connectionStartCell, useSynchronizationContext: false);
+#endif
 
             _channel0.m_connectionStartCell = connectionStartCell;
             _channel0.HandshakeContinuationTimeout = _config.HandshakeContinuationTimeout;

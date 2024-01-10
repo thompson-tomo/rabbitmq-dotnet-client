@@ -144,7 +144,7 @@ namespace RabbitMQ.Client.Impl
             Connection.Write(bytes);
         }
 
-        public virtual ValueTask TransmitAsync<T>(in T cmd) where T : struct, IOutgoingAmqpMethod
+        public virtual ValueTask TransmitAsync<T>(in T cmd, CancellationToken cancellationToken) where T : struct, IOutgoingAmqpMethod
         {
             if (!IsOpen && cmd.ProtocolCommandId != client.framing.ProtocolCommandId.ChannelCloseOk)
             {
@@ -153,7 +153,7 @@ namespace RabbitMQ.Client.Impl
 
             RentedMemory bytes = Framing.SerializeToFrames(ref Unsafe.AsRef(cmd), ChannelNumber);
             RabbitMQActivitySource.PopulateMessageEnvelopeSize(Activity.Current, bytes.Size);
-            return Connection.WriteAsync(bytes);
+            return Connection.WriteAsync(Framing.SerializeToFrames(ref Unsafe.AsRef(cmd), ChannelNumber), cancellationToken);
         }
 
         public void Transmit<TMethod, THeader>(in TMethod cmd, in THeader header, ReadOnlyMemory<byte> body)
@@ -171,7 +171,7 @@ namespace RabbitMQ.Client.Impl
             Connection.Write(bytes);
         }
 
-        public ValueTask TransmitAsync<TMethod, THeader>(in TMethod cmd, in THeader header, ReadOnlyMemory<byte> body)
+        public ValueTask TransmitAsync<TMethod, THeader>(in TMethod cmd, in THeader header, ReadOnlyMemory<byte> body, CancellationToken cancellationToken = default)
             where TMethod : struct, IOutgoingAmqpMethod
             where THeader : IAmqpHeader
         {
@@ -183,7 +183,7 @@ namespace RabbitMQ.Client.Impl
             RentedMemory bytes = Framing.SerializeToFrames(ref Unsafe.AsRef(cmd), ref Unsafe.AsRef(header), body, ChannelNumber,
                 Connection.MaxPayloadSize);
             RabbitMQActivitySource.PopulateMessageEnvelopeSize(Activity.Current, bytes.Size);
-            return Connection.WriteAsync(bytes);
+            return Connection.WriteAsync(Framing.SerializeToFrames(ref Unsafe.AsRef(cmd), ref Unsafe.AsRef(header), body, ChannelNumber, Connection.MaxPayloadSize), cancellationToken);
         }
 
         private void ThrowAlreadyClosedException()

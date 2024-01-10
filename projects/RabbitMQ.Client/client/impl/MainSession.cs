@@ -34,6 +34,8 @@
 // the versions we support*. Obviously we may need to revisit this if
 // that ever changes.
 
+using System.Threading;
+using System.Threading.Tasks;
 using RabbitMQ.Client.client.framing;
 using RabbitMQ.Client.Framing.Impl;
 
@@ -42,7 +44,7 @@ namespace RabbitMQ.Client.Impl
     ///<summary>Small ISession implementation used only for channel 0.</summary>
     internal sealed class MainSession : Session
     {
-        private volatile bool _closeServerInitiated;
+        private volatile bool _closeIsServerInitiated;
         private volatile bool _closing;
         private readonly object _lock = new object();
 
@@ -55,7 +57,7 @@ namespace RabbitMQ.Client.Impl
             if (_closing)
             {
                 // We are closing
-                if (!_closeServerInitiated && frame.Type == FrameType.FrameMethod)
+                if ((false == _closeIsServerInitiated) && (frame.Type == FrameType.FrameMethod))
                 {
                     // This isn't a server initiated close and we have a method frame
                     switch (Connection.Protocol.DecodeCommandIdFrom(frame.Payload.Span))
@@ -84,7 +86,7 @@ namespace RabbitMQ.Client.Impl
         /// method call because that would prevent us from
         /// sending/receiving Close/CloseOk commands
         ///</remarks>
-        public void SetSessionClosing(bool closeServerInitiated)
+        public void SetSessionClosing(bool closeIsServerInitiated)
         {
             if (!_closing)
             {
@@ -93,7 +95,7 @@ namespace RabbitMQ.Client.Impl
                     if (!_closing)
                     {
                         _closing = true;
-                        _closeServerInitiated = closeServerInitiated;
+                        _closeIsServerInitiated = closeIsServerInitiated;
                     }
                 }
             }
@@ -103,7 +105,7 @@ namespace RabbitMQ.Client.Impl
         {
             if (_closing && // Are we closing?
                 cmd.ProtocolCommandId != ProtocolCommandId.ConnectionCloseOk && // is this not a close-ok?
-                (_closeServerInitiated || cmd.ProtocolCommandId != ProtocolCommandId.ConnectionClose)) // is this either server initiated or not a close?
+                (_closeIsServerInitiated || cmd.ProtocolCommandId != ProtocolCommandId.ConnectionClose)) // is this either server initiated or not a close?
             {
                 // We shouldn't do anything since we are closing, not sending a connection-close-ok command
                 // and this is either a server-initiated close or not a connection-close command.
@@ -111,6 +113,20 @@ namespace RabbitMQ.Client.Impl
             }
 
             base.Transmit(in cmd);
+        }
+
+        public override ValueTask TransmitAsync<T>(in T cmd, CancellationToken cancellationToken)
+        {
+            if (_closing && // Are we closing?
+                cmd.ProtocolCommandId != ProtocolCommandId.ConnectionCloseOk && // is this not a close-ok?
+                (_closeIsServerInitiated || cmd.ProtocolCommandId != ProtocolCommandId.ConnectionClose)) // is this either server initiated or not a close?
+            {
+                // We shouldn't do anything since we are closing, not sending a connection-close-ok command
+                // and this is either a server-initiated close or not a connection-close command.
+                return default;
+            }
+
+            return base.TransmitAsync(in cmd, cancellationToken);
         }
     }
 }
