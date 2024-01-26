@@ -53,6 +53,9 @@ namespace RabbitMQ.Client.Framing.Impl
                 await ReceiveLoopAsync(CancellationToken.None)
                     .ConfigureAwait(false);
             }
+            catch (OperationCanceledException)
+            {
+            }
             catch (EndOfStreamException eose)
             {
                 // Possible heartbeat exception
@@ -105,8 +108,9 @@ namespace RabbitMQ.Client.Framing.Impl
 
                 // Done reading frames synchronously, go async
                 // TODO cancellation token
-                InboundFrame asyncFrame = await _frameHandler.ReadFrameAsync()
-                   .ConfigureAwait(false);
+                Task<InboundFrame> readFrameAsyncTask = _frameHandler.ReadFrameAsync().AsTask();
+                await readFrameAsyncTask.WaitAsync(cancellationToken);
+                InboundFrame asyncFrame = await readFrameAsyncTask;
                 NotifyHeartbeatListener();
                 ProcessFrame(asyncFrame);
             }
@@ -188,7 +192,7 @@ namespace RabbitMQ.Client.Framing.Impl
             if (SetCloseReason(hpe.ShutdownReason))
             {
                 OnShutdown(hpe.ShutdownReason);
-                _session0.SetSessionClosing(false);
+                await _session0.SetSessionClosingAsync(false);
                 try
                 {
                     var cmd = new ConnectionClose(hpe.ShutdownReason.ReplyCode, hpe.ShutdownReason.ReplyText, 0, 0);
@@ -225,7 +229,7 @@ namespace RabbitMQ.Client.Framing.Impl
             }
             catch (ObjectDisposedException ode)
             {
-                if (!_closed)
+                if (false == _closed)
                 {
                     LogCloseError("Connection didn't close cleanly", ode);
                 }

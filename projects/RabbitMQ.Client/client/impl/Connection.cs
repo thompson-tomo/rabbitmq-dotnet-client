@@ -33,8 +33,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Net;
-using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -328,12 +326,12 @@ namespace RabbitMQ.Client.Framing.Impl
                 cancellationToken.ThrowIfCancellationRequested();
 
                 OnShutdown(reason);
-                _session0.SetSessionClosing(false);
+                await _session0.SetSessionClosingAsync(false);
 
                 try
                 {
                     // Try to send connection.close wait for CloseOk in the MainLoop
-                    if (!_closed)
+                    if (false == _closed)
                     {
                         var method = new ConnectionClose(reason.ReplyCode, reason.ReplyText, 0, 0);
                         await _session0.TransmitAsync(method, cancellationToken)
@@ -342,7 +340,7 @@ namespace RabbitMQ.Client.Framing.Impl
                 }
                 catch (AlreadyClosedException)
                 {
-                    if (!abort)
+                    if (false == abort)
                     {
                         throw;
                     }

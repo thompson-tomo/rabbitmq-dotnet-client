@@ -34,6 +34,7 @@
 // the versions we support*. Obviously we may need to revisit this if
 // that ever changes.
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using RabbitMQ.Client.client.framing;
@@ -46,7 +47,7 @@ namespace RabbitMQ.Client.Impl
     {
         private volatile bool _closeIsServerInitiated;
         private volatile bool _closing;
-        private readonly object _lock = new object();
+        private readonly SemaphoreSlim _closingSemaphore = new SemaphoreSlim(1, 1);
 
         public MainSession(Connection connection) : base(connection, 0)
         {
@@ -88,16 +89,47 @@ namespace RabbitMQ.Client.Impl
         ///</remarks>
         public void SetSessionClosing(bool closeIsServerInitiated)
         {
-            if (!_closing)
+            if (_closingSemaphore.Wait(TimeSpan.FromSeconds(5)))
             {
-                lock (_lock)
+                try
                 {
-                    if (!_closing)
+                    if (false == _closing)
                     {
                         _closing = true;
                         _closeIsServerInitiated = closeIsServerInitiated;
                     }
                 }
+                finally
+                {
+                    _closingSemaphore.Release();
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("[DEBUG] couldn't enter semaphore");
+            }
+        }
+
+        public async Task SetSessionClosingAsync(bool closeIsServerInitiated)
+        {
+            if (await _closingSemaphore.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false))
+            {
+                try
+                {
+                    if (false == _closing)
+                    {
+                        _closing = true;
+                        _closeIsServerInitiated = closeIsServerInitiated;
+                    }
+                }
+                finally
+                {
+                    _closingSemaphore.Release();
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("[DEBUG] couldn't async enter semaphore");
             }
         }
 
