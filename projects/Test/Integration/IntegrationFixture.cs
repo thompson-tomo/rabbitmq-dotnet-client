@@ -50,7 +50,7 @@ namespace Test.Integration
                 threadCount = _processorCount * 8;
             }
 
-            ThreadPool.SetMinThreads(threadCount, threadCount);
+            // ThreadPool.SetMinThreads(threadCount, threadCount);
         }
     }
 }
