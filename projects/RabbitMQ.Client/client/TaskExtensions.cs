@@ -71,7 +71,7 @@ namespace RabbitMQ.Client
             using var timeoutTokenCts = new CancellationTokenSource(timeout);
             CancellationToken timeoutToken = timeoutTokenCts.Token;
 
-            var linkedTokenTcs = new TaskCompletionSource<bool>();
+            var linkedTokenTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutToken, cancellationToken);
             using CancellationTokenRegistration cancellationTokenRegistration =
                 linkedCts.Token.Register(s => ((TaskCompletionSource<bool>)s).TrySetResult(true),
@@ -108,7 +108,7 @@ namespace RabbitMQ.Client
 
         private static async Task DoWaitAsync(this Task task, CancellationToken cancellationToken)
         {
-            var cancellationTokenTcs = new TaskCompletionSource<bool>();
+            var cancellationTokenTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             using (cancellationToken.Register(s => ((TaskCompletionSource<bool>)s).TrySetResult(true),
                 state: cancellationTokenTcs, useSynchronizationContext: false))
