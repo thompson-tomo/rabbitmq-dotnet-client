@@ -136,13 +136,16 @@ namespace RabbitMQ.Client.Impl
 
         public override void Transmit<T>(in T cmd)
         {
-            if (_closing && // Are we closing?
-                cmd.ProtocolCommandId != ProtocolCommandId.ConnectionCloseOk && // is this not a close-ok?
-                (_closeIsServerInitiated || cmd.ProtocolCommandId != ProtocolCommandId.ConnectionClose)) // is this either server initiated or not a close?
+            // Are we closing?
+            if (_closing)
             {
-                // We shouldn't do anything since we are closing, not sending a connection-close-ok command
-                // and this is either a server-initiated close or not a connection-close command.
-                return;
+                if ((cmd.ProtocolCommandId != ProtocolCommandId.ConnectionCloseOk) && // is this not a close-ok?
+                    (_closeIsServerInitiated || cmd.ProtocolCommandId != ProtocolCommandId.ConnectionClose)) // is this either server initiated or not a close?
+                {
+                    // We shouldn't do anything since we are closing, not sending a connection-close-ok command
+                    // and this is either a server-initiated close or not a connection-close command.
+                    return;
+                }
             }
 
             base.Transmit(in cmd);
@@ -150,13 +153,16 @@ namespace RabbitMQ.Client.Impl
 
         public override ValueTask TransmitAsync<T>(in T cmd, CancellationToken cancellationToken)
         {
-            if (_closing && // Are we closing?
-                cmd.ProtocolCommandId != ProtocolCommandId.ConnectionCloseOk && // is this not a close-ok?
-                (_closeIsServerInitiated || cmd.ProtocolCommandId != ProtocolCommandId.ConnectionClose)) // is this either server initiated or not a close?
+            // Are we closing?
+            if (_closing)
             {
-                // We shouldn't do anything since we are closing, not sending a connection-close-ok command
-                // and this is either a server-initiated close or not a connection-close command.
-                return default;
+                if ((cmd.ProtocolCommandId != ProtocolCommandId.ConnectionCloseOk) && // is this not a close-ok?
+                    (_closeIsServerInitiated || cmd.ProtocolCommandId != ProtocolCommandId.ConnectionClose)) // is this either server initiated or not a close?
+                {
+                    // We shouldn't do anything since we are closing, not sending a connection-close-ok command
+                    // and this is either a server-initiated close or not a connection-close command.
+                    return default;
+                }
             }
 
             return base.TransmitAsync(in cmd, cancellationToken);
