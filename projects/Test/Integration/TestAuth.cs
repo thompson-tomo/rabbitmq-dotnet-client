@@ -59,6 +59,8 @@ namespace Test.Integration
             ConnectionFactory connFactory = CreateConnectionFactory();
             connFactory.UserName = "guest";
             connFactory.Password = "incorrect-password";
+            connFactory.AutomaticRecoveryEnabled = true;
+            connFactory.TopologyRecoveryEnabled = true;
 
             try
             {

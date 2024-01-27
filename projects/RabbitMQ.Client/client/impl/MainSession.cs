@@ -47,6 +47,7 @@ namespace RabbitMQ.Client.Impl
     {
         private volatile bool _closeIsServerInitiated;
         private volatile bool _closing;
+        // TODO dispose
         private readonly SemaphoreSlim _closingSemaphore = new SemaphoreSlim(1, 1);
 
         public MainSession(Connection connection) : base(connection, 0)
